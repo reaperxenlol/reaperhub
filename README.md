@@ -11,7 +11,7 @@ A collection of obfuscated HTTP scripts for loadstring operations.
 Load the script via HTTP using loadstring:
 
 ```lua
-loadstring(game:HttpGet("YOUR_RAW_URL_HERE"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/reaperxenlol/reaperhub/main/loadstring.lua"))()
 ```
 
 ## Note
