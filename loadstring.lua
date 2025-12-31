@@ -1,3 +1,10 @@
+-- ========================
+-- REAPER LOGGER BOT v7.0
+-- Production-Ready Logger Bot for Reaper Hub
+-- ========================
+-- CONFIGURATION: Set your script URL here for auto-restart functionality
+local SCRIPT_URL = "YOUR_SCRIPT_URL_HERE"  -- Replace with your actual script URL
+
 -- EXECUTION GUARD
 -- ========================
 if _G.REAPER_BOT_RUNNING then
@@ -917,7 +924,7 @@ task.spawn(function()
                 task.wait(2)
                 _G.REAPER_BOT_RUNNING = false
                 task.wait(1)
-                loadstring(game:HttpGet("YOUR_SCRIPT_URL_HERE"))()
+                loadstring(game:HttpGet(SCRIPT_URL))()
                 break
             end
             
