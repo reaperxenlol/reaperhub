@@ -1,163 +1,149 @@
-local _L1iIl1 = string.char
-local _i1L1li = string.byte
-local _lIL1Il = table.insert
-local _IlI1lL = table.concat
-local _1iLIi1 = table.sort
-local _Li1l1I = math.floor
-local _l1ILiI = math.random
-local _IiL1l1 = tonumber
-local _1lIL1i = tostring
-local _iIlL1I = type
-local _L1l1Ii = pairs
-local _lI1iLl = ipairs
-local _1LiIl1 = pcall
-local _Il1iL1 = os.time
-local _iL1I1l = os.date
+-- EXECUTION GUARD
+-- ========================
+if _G.REAPER_BOT_RUNNING then
+    return
+end
+_G.REAPER_BOT_RUNNING = true
 
-local function _xL1(a, b)
-    local r = 0
-    for i = 0, 7 do
-        local x = _Li1l1I(a / 2^i) % 2
-        local y = _Li1l1I(b / 2^i) % 2
-        if x ~= y then r = r + 2^i end
-    end
-    return r
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local PLACE_ID = 109983668079237
+local SCAN_DURATION = 3
+
+-- AUTO-RESTART CONFIG
+local AUTO_RESTART_ENABLED = true
+local RESTART_ON_ERROR_COUNT = 3
+local consecutiveErrors = 0
+
+-- ========================
+-- API CONFIGURATION
+-- ========================
+local API_BASE_URL = "https://reapersaj.manus.space"
+local API_SERVERS_ENDPOINT = API_BASE_URL .. "/api/data"
+
+-- ========================
+-- WEBHOOK CONFIGURATION
+-- ========================
+local WEBHOOKS = {
+    {threshold = 1000000000, url = "https://discord.com/api/webhooks/1449839085618466836/EJ_mosE_BIlOnxh1ybz9LF3Nys9zn92_FXzc_zkHoHCyQAqKu4QDg5P9LiobrxLuZPRR", name = "1B+"},
+    {threshold = 300000000, url = "https://discord.com/api/webhooks/1449839022825537786/sBf5I_Aa5WZW-PacXvdzMQXCLhySYpwKppIFJB2RYPk1DDgS9xbd-T5qOv4SmrJWNx4r", name = "300M+"},
+    {threshold = 100000000, url = "https://discord.com/api/webhooks/1449838937878167664/-wh9mjxg9reZBGyArotw-2Kah_rI2IntiPRV8JuxHfvLBfvm-hgqzx3PXABQdRTzIDRe", name = "100M+"},
+    {threshold = 50000000, url = "https://discord.com/api/webhooks/1449838592200409201/RXZDdX1l9PE2tPQV6VL4zFIK0Q7_Z_28tPd1ZzQIFRDCzph0hz-XQDmHbQIlBLu-DJH6", name = "50M+"},
+    {threshold = 10000000, url = "https://discord.com/api/webhooks/1449839469879496754/kZa8bH4QSCwXjRwsOajNUvHq1wosOBsj39ezcw-55rgjS-_qJTe5rVMTIZHWxApD4R3-", name = "10-50M"},
+}
+
+local FALLBACK_WEBHOOK = {
+    url = "https://discord.com/api/webhooks/1449180921592025245/cwF8NKXB05G8lzJt1ombgvTGdA2SxzdQfDOId-9S_IgF7c26QwgbxRdrQamwwy5VZrqK",
+    name = "1-10M",
+    color = 0xFFFFFF
+}
+
+local MIN_THRESHOLD = 1000000
+local HIGHLIGHTS_THRESHOLD = 50000000  -- 50M+ for highlights
+
+-- ========================
+-- SPECIAL BRAINROT PINGS
+-- ========================
+local SPECIAL_PING_BRAINROTS = {
+    "Ketupat ketpat",
+    "ketchuru and musturu",
+    "Tictack sahur",
+    "Nuclearo dinosaur",
+    "money money puggy",
+    "Gobblino Uniciclino",
+    "La Supreme Combinasion",
+    "Lavadorito Spinito",
+    "Tang Tang Keletang"
+}
+local HIGHLIGHTS_WEBHOOK = "https://discordapp.com/api/webhooks/1449228042990915665/daivH8t-I_Ry-d4QrFNa2oAk8Vo9FWkP8-pzsaWvjar_QIwdNdXpmjZV3nVkQuxQi27Q"
+local STATUS_WEBHOOK = "https://discord.com/api/webhooks/1449225207561584772/64Mb0pE4gGhrXMDPj0DVLcupNvSKKop2KgMAgSGxIAC4k7V30vobDh9XX1NXonVzxIeB"
+local SECONDARY_1_10M_WEBHOOK = "https://discordapp.com/api/webhooks/1449234826803675219/6t-mirx90KQpP6WnDXkI-78viuzCgHlu2lL-bs-EjZ43lmNBtc5snX9HElbGIuuHVFzr"
+local AVATAR_URL = "https://cdn.discordapp.com/attachments/1449158166289059982/1449233510589005975/reaper.png"
+
+-- ========================
+-- WEBHOOK RATE LIMITING
+-- ========================
+local webhookQueue = {}
+local lastWebhookTime = 0
+local WEBHOOK_COOLDOWN = 0.6  -- Default fallback cooldown
+local dynamicCooldown = 0.6  -- Dynamic cooldown based on Discord rate limits
+local rateLimitRemaining = nil
+local rateLimitResetAfter = nil
+
+local function queueWebhook(url, data, priority)
+    priority = priority or 5
+    table.insert(webhookQueue, {
+        url = url,
+        data = data,
+        priority = priority,
+        timestamp = os.time(),
+        retries = 0
+    })
 end
 
-local function _dS(t, k)
-    k = k or 0x2F
-    local r = {}
-    for i = 1, #t do
-        local s = (k + (i - 1) * 7) % 256
-        local c = (bit32 and bit32.bxor or _xL1)(t[i], s)
-        _lIL1Il(r, _L1iIl1(c))
-    end
-    return _IlI1lL(r)
-end
-
-local _S = {
-    ts = {123,83,81,33,59,61,43,20,52,11,7,10,234,233,244},
-    hs = {103,66,73,52,24,55,43,22,14,13,16},
-    ps = {127,90,92,61,46,32,42},
-    rs = {125,83,77,40,34,49,56,20,2,10,38,8,236,248,240,255,250},
-    pk = {127,87,94,47,42,53,60,19},
-    dt = {107,87,73,37,56},
-    sh = {124,94,92,54,46,54},
-    ut = {122,66,84,40,56},
-    sy = {124,79,83,39,35,32,54,14,14,20,16,14},
-    an = {110,88,84,41,42,62,42},
-    ra = {125,87,79,45,63,59,60,19},
-    nu = {97,67,80,38,46,32,12,20,14,2,6},
-    pl = {127,90,82,48,56},
-    al = {110,88,84,41,42,62,21,9,20,26},
-    ow = {96,65,83,33,57},
-    ct = {108,89,83,48,46,60,45,77,51,23,5,25},
-    aj = {78,70,77,40,34,49,56,20,14,1,27,83,234,249,254,246},
-    po = {127,121,110,16},
-    xr = {87,27,79,37,63,55,53,9,10,7,1,81,241,239,252,249,246,200,196,218,220},
-    XR = {119,27,111,37,63,55,21,9,10,7,1,81,209,239,252,249,246,200,196,218,220},
-    xra = {87,27,79,37,63,55,53,9,10,7,1,81,241,239,226,253,235,139,204,210,207,167,187},
-    XRA = {119,27,111,37,63,55,21,9,10,7,1,81,209,239,226,253,235,139,236,210,207,167,187},
-}
-
-local _W = {
-    w1 = {71,66,73,52,56,104,118,79,3,7,6,31,236,248,245,182,252,201,192,155,218,178,160,255,160,187,135,132,156,149,106,123,32,39,41,16,18,10,10,121,119,118,96,106,82,82,69,78,73,190,190,162,180,231,227,239,218,209,182,137,140,152,168,132,160,152,133,108,58,107,123,90,30,98,115,15,13,51,34,97,37,8,84,70,36,196,209,234,244,193,223,199,251,213,137,139,182,135,156,149,160,135,205,81,67,105,32,76,26,102,88,87,93,52,53,24,46,56,57,34,37},
-    w2 = {71,66,73,52,56,104,118,79,3,7,6,31,236,248,245,182,252,201,192,155,218,178,160,255,160,187,135,132,156,149,106,123,32,39,41,16,18,10,10,121,119,124,103,100,81,95,68,75,72,177,181,162,180,209,235,214,130,247,154,141,178,239,182,178,184,219,173,101,104,74,111,68,93,99,100,100,0,6,57,33,12,63,29,3,48,242,249,217,209,212,231,158,225,227,145,163,254,146,153,131,184,203,129,98,99,35,65,41,82,101,71,12,108,43,63,30,12,44,17,68,5},
-    w3 = {71,66,73,52,56,104,118,79,3,7,6,31,236,248,245,182,252,201,192,155,218,178,160,255,160,187,135,132,156,149,106,123,32,39,41,16,18,10,10,120,126,125,98,100,84,82,64,78,72,176,187,160,180,143,222,216,142,211,175,180,180,227,147,141,181,180,186,125,74,96,118,84,80,3,7,119,34,34,14,42,22,84,36,26,15,235,217,194,193,166,239,217,203,242,167,190,131,148,187,146,134,223,145,103,118,116,109,47,115,114,112,122,110,34,31,0,33,43,45,34,18},
-    w4 = {71,66,73,52,56,104,118,79,3,7,6,31,236,248,245,182,252,201,192,155,218,178,160,255,160,187,135,132,156,149,106,123,32,39,41,16,18,10,10,120,114,119,103,110,83,90,69,72,70,180,189,165,180,240,241,234,243,218,157,253,191,227,177,173,221,130,173,85,93,36,79,108,19,84,115,117,8,122,0,111,0,60,50,70,67,246,217,244,166,196,223,253,250,252,147,140,140,172,173,140,219,154,131,45,95,95,81,113,107,72,96,113,83,4,1,33,118,38,35,56,65},
-    w5 = {71,66,73,52,56,104,118,79,3,7,6,31,236,248,245,182,252,201,192,155,218,178,160,255,160,187,135,132,156,149,106,123,32,39,41,16,18,10,10,121,115,120,108,100,84,83,69,65,73,177,184,160,180,201,243,209,143,220,141,248,130,137,162,159,183,156,175,115,120,93,120,74,105,123,67,116,50,123,38,55,44,41,47,7,17,177,176,245,237,253,210,129,134,143,179,175,165,133,240,187,154,184,173,101,50,124,67,81,119,99,107,112,104,62,12,36,31,86,59,67,90},
-    wf = {71,66,73,52,56,104,118,79,3,7,6,31,236,248,245,182,252,201,192,155,218,178,160,255,160,187,135,132,156,149,106,123,32,39,41,16,18,3,1,112,126,124,100,105,90,88,65,74,74,180,185,161,180,193,222,246,143,240,142,148,145,234,212,175,215,154,135,78,127,35,118,77,69,73,67,104,4,46,16,106,12,30,23,16,42,228,205,223,222,250,136,149,224,229,136,175,137,225,190,214,221,163,142,103,101,118,71,120,81,123,80,85,72,49,52,97,13,56,27,1,60},
-    wh = {71,66,73,52,56,104,118,79,3,7,6,31,236,248,245,249,239,214,131,215,212,175,230,177,167,183,202,155,150,152,105,103,96,125,110,11,26,6,13,121,117,124,109,108,87,88,72,65,79,191,188,161,173,148,156,159,211,223,172,186,155,226,149,197,166,169,175,125,38,118,45,113,85,104,123,93,113,37,16,51,103,48,2,77,61,213,226,192,175,179,213,214,192,219,150,190,165,183,175,187,186,187,142,100,73,106,77,108,78,64,107,110,12,40,27,63,10,23,17,33,30,76,178,221},
-    ws = {71,66,73,52,56,104,118,79,3,7,6,31,236,248,245,182,252,201,192,155,218,178,160,255,160,187,135,132,156,149,106,123,32,39,41,16,18,0,11,117,117,126,98,105,85,91,68,64,75,177,186,166,180,148,157,253,213,142,181,137,231,189,166,128,157,174,176,64,91,120,41,100,113,98,86,73,51,4,39,11,20,45,2,4,73,201,238,221,214,249,246,235,203,243,128,139,251,189,234,178,216,194,143,111,101,74,125,37,123,114,0,118,103,41,35,2,33,26,32,21,53},
-    w2s = {71,66,73,52,56,104,118,79,3,7,6,31,236,248,245,249,239,214,131,215,212,175,230,177,167,183,202,155,150,152,105,103,96,125,110,11,26,6,13,121,117,125,97,100,81,92,73,72,76,176,186,161,169,147,144,159,129,202,232,161,186,168,153,209,223,189,172,116,91,36,78,78,99,118,94,117,110,125,105,46,54,19,23,55,28,202,229,229,165,242,233,129,209,201,236,141,165,140,233,215,135,159,183,66,115,109,32,111,77,114,8,112,122,42,47,19,18,23,28,56,33,56,255,254},
-    av = {71,66,73,52,56,104,118,79,4,10,27,82,231,227,226,251,240,212,201,213,203,178,231,179,184,179,202,141,135,142,96,107,103,123,120,74,95,65,22,113,115,122,108,109,86,82,64,78,73,180,181,173,171,151,144,137,143,140,234,253,231,238,216,218,220,197,200,53,59,39,33,25,23,30,0,5,116,127,126,42,58,7,29,17,9,172,249,254,240},
-    ap = {71,66,73,52,56,104,118,79,21,11,20,12,230,248,226,249,245,136,192,213,213,183,186,254,164,174,132,143,150,213,96,120,102,57,121,69,95,83},
-    rp = {71,66,73,52,56,104,118,79,0,15,24,25,240,164,227,247,253,202,194,204,149,161,166,189,248,168,212,195,148,155,108,109,124,57},
-}
-
-local _rK = _l1ILiI(10000, 99999)
-local _gK = "_" .. _1lIL1i(_rK)
-
-if _G[_gK] then return end
-_G[_gK] = true
-
-local _tS = game:GetService(_dS(_S.ts))
-local _hS = game:GetService(_dS(_S.hs))
-local _pS = game:GetService(_dS(_S.ps))
-local _rS = game:GetService(_dS(_S.rs))
-
-local _pI = 109983668079237
-local _sD = 3
-local _aR = true
-local _rC = 3
-local _cE = 0
-
-local _wH = {
-    {t = 1000000000, u = _dS(_W.w1), n = "1B+"},
-    {t = 300000000, u = _dS(_W.w2), n = "300M+"},
-    {t = 100000000, u = _dS(_W.w3), n = "100M+"},
-    {t = 50000000, u = _dS(_W.w4), n = "50M+"},
-    {t = 10000000, u = _dS(_W.w5), n = "10-50M"},
-}
-
-local _fW = {u = _dS(_W.wf), n = "1-10M", c = 0xFFFFFF}
-local _mT = 1000000
-local _hT = 50000000
-
-local _sP = {
-    "Ketupat ketpat", "ketchuru and musturu", "Tictack sahur",
-    "Nuclearo dinosaur", "money money puggy", "Gobblino Uniciclino",
-    "La Supreme Combinasion", "Lavadorito Spinito", "Tang Tang Keletang"
-}
-
-local _hW = _dS(_W.wh)
-local _sW = _dS(_W.ws)
-local _s2W = _dS(_W.w2s)
-local _aU = _dS(_W.av)
-
-local _wQ = {}
-local _lW = 0
-local _wC = 0.6
-local _dC = 0.6
-local _rL = nil
-local _rA = nil
-
-local function _qW(u, d, p)
-    p = p or 5
-    _lIL1Il(_wQ, {u = u, d = d, p = p, ts = _Il1iL1(), rt = 0})
-end
-
-local function _pW()
+local function processWebhookQueue()
     while true do
-        if #_wQ > 0 then
-            local cT = _Il1iL1()
-            _1iLIi1(_wQ, function(a, b) return a.p > b.p end)
-            if (cT - _lW) >= _dC then
-                local wh = table.remove(_wQ, 1)
-                local rq = (syn and syn.request) or http_request or request
-                if rq then
-                    local s, r = _1LiIl1(function()
-                        return rq({
-                            Url = wh.u,
-                            Method = _dS(_S.po),
-                            Headers = {[_dS(_S.ct)] = _dS(_S.aj)},
-                            Body = _hS:JSONEncode(wh.d)
+        if #webhookQueue > 0 then
+            local currentTime = os.time()
+            
+            table.sort(webhookQueue, function(a, b)
+                return a.priority > b.priority
+            end)
+            
+            if (currentTime - lastWebhookTime) >= dynamicCooldown then
+                local webhook = table.remove(webhookQueue, 1)
+                
+                local request = (syn and syn.request) or http_request or request
+                if request then
+                    local success, response = pcall(function()
+                        local jsonData = HttpService:JSONEncode(webhook.data)
+                        return request({
+                            Url = webhook.url,
+                            Method = "POST",
+                            Headers = {["Content-Type"] = "application/json"},
+                            Body = jsonData
                         })
                     end)
-                    if s and r then
-                        _lW = cT
-                        if r.Headers then
-                            local rm = r.Headers[_dS(_S.xr)] or r.Headers[_dS(_S.XR)]
-                            local ra = r.Headers[_dS(_S.xra)] or r.Headers[_dS(_S.XRA)]
-                            if rm then _rL = _IiL1l1(rm) end
-                            if ra then _rA = _IiL1l1(ra) end
-                            if _rL and _rL > 0 then _dC = 0.1
-                            elseif _rA and _rA > 0 then _dC = _rA + 0.5
-                            else _dC = _wC end
+                    
+                    if success and response then
+                        lastWebhookTime = currentTime
+                        
+                        -- Parse Discord rate limit headers
+                        if response.Headers then
+                            local remaining = response.Headers["x-ratelimit-remaining"] or response.Headers["X-RateLimit-Remaining"]
+                            local resetAfter = response.Headers["x-ratelimit-reset-after"] or response.Headers["X-RateLimit-Reset-After"]
+                            
+                            if remaining then
+                                rateLimitRemaining = tonumber(remaining)
+                            end
+                            
+                            if resetAfter then
+                                rateLimitResetAfter = tonumber(resetAfter)
+                            end
+                            
+                            -- Adjust dynamic cooldown based on rate limits
+                            if rateLimitRemaining and rateLimitRemaining > 0 then
+                                -- We have requests remaining, use minimal cooldown
+                                dynamicCooldown = 0.1
+                            elseif rateLimitResetAfter and rateLimitResetAfter > 0 then
+                                -- We're rate limited, wait for reset
+                                dynamicCooldown = rateLimitResetAfter + 0.5
+
+                            else
+                                -- No rate limit info, use default
+                                dynamicCooldown = WEBHOOK_COOLDOWN
+                            end
                         end
-                    elseif not s then
-                        wh.rt = wh.rt + 1
-                        if wh.rt < 3 then _lIL1Il(_wQ, wh) end
+                    elseif not success then
+                        webhook.retries = webhook.retries + 1
+                        if webhook.retries < 3 then
+                            table.insert(webhookQueue, webhook)
+                        else
+
+                        end
                     end
                 end
             end
@@ -166,136 +152,265 @@ local function _pW()
     end
 end
 
-task.spawn(_pW)
+task.spawn(processWebhookQueue)
 
-local _sV = {P = _pS, RS = _rS, LP = _pS.LocalPlayer}
+-- ========================
+-- GLOBAL REGISTRIES
+-- ========================
+if not _G.REAPER_BOT_REGISTRY then
+    _G.REAPER_BOT_REGISTRY = {}
+end
 
-local _sD_ = {
-    bid = nil, un = nil, uid = nil, dn = nil, ec = 0,
-    sst = _Il1iL1(), crst = _Il1iL1(), ss = 0,
-    bl = {["1B+"] = 0, ["300M+"] = 0, ["100M+"] = 0, ["50M+"] = 0, ["10-50M"] = 0, ["1-10M"] = 0},
-    lb = {},
+-- ========================
+-- SERVICES
+-- ========================
+local S = {
+    Players = Players,
+    ReplicatedStorage = ReplicatedStorage,
+    LocalPlayer = Players.LocalPlayer,
 }
 
-local _aA = {}
-local _lS = 0
-local _sC = 3
-local _iS = false
-local _hS_ = false
-local _vS = {}
-local _mV = 50
-local _sCs = {}
-local _wSf = {}
+-- ========================
+-- SESSION DATA
+-- ========================
+local SESSION_DATA = {
+    botId = nil,
+    username = nil,
+    userId = nil,
+    displayName = nil,
+    executionCount = 0,
+    sessionStartTime = os.time(),
+    currentRunStartTime = os.time(),
+    serversScanned = 0,
+    brainrotsLogged = {
+        ["1B+"] = 0, ["300M+"] = 0, ["100M+"] = 0,
+        ["50M+"] = 0, ["10-50M"] = 0, ["1-10M"] = 0
+    },
+    loggedBrainrots = {},
+}
 
-local function _fU(s)
-    local h = _Li1l1I(s / 3600)
-    local m = _Li1l1I((s % 3600) / 60)
-    local sc = s % 60
-    return string.format("%02d:%02d:%02d", h, m, sc)
+-- ========================
+-- SCAN STATE
+-- ========================
+local allAnimalsCache = {}
+local lastScanTime = 0
+local SCAN_COOLDOWN = 3
+local isScanning = false
+local hasScannedCurrentServer = false
+local visitedServers = {}
+local MAX_VISITED_SERVERS = 50
+local scannedServers = {}  -- Track scanned servers by JobId
+local webhooksSentForServer = {}  -- Track webhooks sent per server
+
+-- ========================
+-- UTILITY FUNCTIONS
+-- ========================
+local function formatUptime(seconds)
+    local hours = math.floor(seconds / 3600)
+    local minutes = math.floor((seconds % 3600) / 60)
+    local secs = seconds % 60
+    return string.format("%02d:%02d:%02d", hours, minutes, secs)
 end
 
-local function _fM(v)
-    if _sV.NU then
-        local s, r = _1LiIl1(function() return "$" .. _sV.NU:ToString(v) .. "/s" end)
-        if s then return r end
+local function formatMoney(value)
+    if S.NumberUtils then
+        local success, result = pcall(function()
+            return "$" .. S.NumberUtils:ToString(value) .. "/s"
+        end)
+        if success then return result end
     end
-    if v >= 1000000000 then return string.format("$%.2fB/s", v / 1000000000)
-    elseif v >= 1000000 then return string.format("$%.2fM/s", v / 1000000)
-    elseif v >= 1000 then return string.format("$%.2fK/s", v / 1000)
-    else return string.format("$%.0f/s", v) end
+    
+    if value >= 1000000000 then
+        return string.format("$%.2fB/s", value / 1000000000)
+    elseif value >= 1000000 then
+        return string.format("$%.2fM/s", value / 1000000)
+    elseif value >= 1000 then
+        return string.format("$%.2fK/s", value / 1000)
+    else
+        return string.format("$%.0f/s", value)
+    end
 end
 
-local function _gB(u, i) return "BOT_" .. u .. "#" .. _1lIL1i(i) end
+local function generateBotId(username, userId)
+    return "BOT_" .. username .. "#" .. tostring(userId)
+end
 
-local function _c3(c)
-    local r = _Li1l1I(c.R * 255)
-    local g = _Li1l1I(c.G * 255)
-    local b = _Li1l1I(c.B * 255)
+local function color3ToDecimal(color3)
+    local r = math.floor(color3.R * 255)
+    local g = math.floor(color3.G * 255)
+    local b = math.floor(color3.B * 255)
     return r * 65536 + g * 256 + b
 end
 
-local function _gW(hv)
-    for _, t in _lI1iLl(_wH) do
-        if hv >= t.t then return t, false end
+local function getWebhookTier(highestValue)
+    for _, tier in ipairs(WEBHOOKS) do
+        if highestValue >= tier.threshold then
+            return tier, false
+        end
     end
-    return _fW, true
+    return FALLBACK_WEBHOOK, true
 end
 
-local function _gT(v)
-    if v >= 1000000000 then return "1B+"
-    elseif v >= 300000000 then return "300M+"
-    elseif v >= 100000000 then return "100M+"
-    elseif v >= 50000000 then return "50M+"
-    elseif v >= 10000000 then return "10-50M"
+local function getTierFromValue(value)
+    if value >= 1000000000 then return "1B+"
+    elseif value >= 300000000 then return "300M+"
+    elseif value >= 100000000 then return "100M+"
+    elseif value >= 50000000 then return "50M+"
+    elseif value >= 10000000 then return "10-50M"
     else return "1-10M" end
 end
 
-local function _iS_()
-    local p = _sV.LP
-    _sD_.un = p.Name
-    _sD_.uid = p.UserId
-    _sD_.dn = p.DisplayName
-    _sD_.bid = _gB(p.Name, p.UserId)
-    _sD_.ec = 1
+local function isBrainrotLogged(uid)
+    return SESSION_DATA.loggedBrainrots[uid] ~= nil
 end
 
-local _pK = _rS:WaitForChild(_dS(_S.pk), 10)
-local _dT = _rS:WaitForChild(_dS(_S.dt), 10)
-local _sH = _rS:WaitForChild(_dS(_S.sh), 10)
-local _uT = _rS:WaitForChild(_dS(_S.ut), 10)
-
-if _pK and _dT and _sH and _uT then
-    _sV.SY = require(_pK:WaitForChild(_dS(_S.sy), 5))
-    _sV.AD = require(_dT:WaitForChild(_dS(_S.an), 5))
-    _sV.RD = require(_dT:WaitForChild(_dS(_S.ra), 5))
-    _sV.AS = require(_sH:WaitForChild(_dS(_S.an), 5))
-    _sV.NU = require(_uT:WaitForChild(_dS(_S.nu), 5))
+local function markBrainrotLogged(uid, tier)
+    if not SESSION_DATA.loggedBrainrots[uid] then
+        SESSION_DATA.loggedBrainrots[uid] = {
+            tier = tier,
+            timestamp = os.time()
+        }
+        if SESSION_DATA.brainrotsLogged[tier] then
+            SESSION_DATA.brainrotsLogged[tier] = SESSION_DATA.brainrotsLogged[tier] + 1
+        end
+    end
 end
 
-local function _sSb()
-    local cJ = game.JobId
-    if _sCs[cJ] then _hS_ = true return _aA end
-    if _iS or (_Il1iL1() - _lS < _sC) then return _aA end
-    if _hS_ then return _aA end
+-- ========================
+-- SESSION INITIALIZATION
+-- ========================
+local function initializeSession()
+    local player = S.LocalPlayer
+    SESSION_DATA.username = player.Name
+    SESSION_DATA.userId = player.UserId
+    SESSION_DATA.displayName = player.DisplayName
+    SESSION_DATA.botId = generateBotId(player.Name, player.UserId)
     
-    _iS = true
-    _aA = {}
+    if _G.REAPER_BOT_REGISTRY[SESSION_DATA.botId] then
+        SESSION_DATA.executionCount = _G.REAPER_BOT_REGISTRY[SESSION_DATA.botId].executionCount + 1
+    else
+        SESSION_DATA.executionCount = 1
+    end
     
-    local pl = workspace:FindFirstChild(_dS(_S.pl))
-    if not pl then _iS = false return {} end
+    _G.REAPER_BOT_REGISTRY[SESSION_DATA.botId] = {
+        executionCount = SESSION_DATA.executionCount,
+        lastActive = os.time(),
+        serversScanned = 0
+    }
+end
+
+-- ========================
+-- GAME MODULE LOADING
+-- ========================
+
+local Packages = ReplicatedStorage:WaitForChild("Packages", 10)
+local Datas = ReplicatedStorage:WaitForChild("Datas", 10)
+local Shared = ReplicatedStorage:WaitForChild("Shared", 10)
+local Utils = ReplicatedStorage:WaitForChild("Utils", 10)
+
+if Packages and Datas and Shared and Utils then
+    S.Synchronizer = require(Packages:WaitForChild("Synchronizer", 5))
+    S.AnimalsData = require(Datas:WaitForChild("Animals", 5))
+    S.RaritiesData = require(Datas:WaitForChild("Rarities", 5))
+    S.AnimalsShared = require(Shared:WaitForChild("Animals", 5))
+    S.NumberUtils = require(Utils:WaitForChild("NumberUtils", 5))
+
+else
+
+end
+
+-- ========================
+-- BRAINROT SCANNING
+-- ========================
+local function scanServerBrainrots()
+    local currentJobId = game.JobId
     
-    for _, p in _L1l1Ii(pl:GetChildren()) do
-        if p:IsA("Model") then
-            _1LiIl1(function()
-                local pU = p.Name
-                local ch = _sV.SY:Get(pU)
-                if not ch then return end
-                local aL = ch:Get(_dS(_S.al))
-                if not aL then return end
-                local ow = ch:Get(_dS(_S.ow))
-                local oN = ow and ow.Name or "Unknown"
-                if not ow or not _sV.P:FindFirstChild(ow.Name) then return end
+    -- Check if this server was already scanned
+    if scannedServers[currentJobId] then
+
+        hasScannedCurrentServer = true
+        return allAnimalsCache
+    end
+    
+    if isScanning or (os.time() - lastScanTime < SCAN_COOLDOWN) then
+        return allAnimalsCache
+    end
+    
+    if hasScannedCurrentServer then
+
+        return allAnimalsCache
+    end
+    
+    isScanning = true
+    allAnimalsCache = {}
+
+    local plots = workspace:FindFirstChild("Plots")
+    if not plots then
+
+        isScanning = false
+        return {}
+    end
+    
+    local plotCount = 0
+    local animalCount = 0
+    
+    for _, plot in pairs(plots:GetChildren()) do
+        if plot:IsA("Model") then
+            pcall(function()
+                local plotUID = plot.Name
+                local channel = S.Synchronizer:Get(plotUID)
+                if not channel then return end
                 
-                for sl, aD in _L1l1Ii(aL) do
-                    if _iIlL1I(aD) == "table" then
-                        local aN = aD.Index
-                        local aI = _sV.AD[aN]
-                        if aI then
-                            local ra = aI.Rarity
-                            local rC = (_sV.RD[ra] and _sV.RD[ra].Color) or Color3.fromRGB(255, 255, 255)
-                            local mu = aD.Mutation or "None"
-                            local tr = (aD.Traits and #aD.Traits > 0) and _IlI1lL(aD.Traits, ", ") or "None"
-                            local gV = _sV.AS:GetGeneration(aN, aD.Mutation, aD.Traits, nil)
-                            local gT = "$" .. _sV.NU:ToString(gV) .. "/s"
-                            local iF = aD.Fusing or false
-                            local dN = aI.DisplayName or aN
-                            if iF then dN = dN .. " (Fusing)" end
+                plotCount = plotCount + 1
+                
+                local animalList = channel:Get("AnimalList")
+                if not animalList then return end
+                
+                local owner = channel:Get("Owner")
+                local ownerName = owner and owner.Name or "Unknown"
+                
+                if not owner or not S.Players:FindFirstChild(owner.Name) then
+                    return
+                end
+                
+                for slot, animalData in pairs(animalList) do
+                    if type(animalData) == "table" then
+                        local animalName = animalData.Index
+                        local animalInfo = S.AnimalsData[animalName]
+                        if animalInfo then
+                            local rarity = animalInfo.Rarity
+                            local rarityColor = (S.RaritiesData[rarity] and S.RaritiesData[rarity].Color) or Color3.fromRGB(255, 255, 255)
+                            local mutation = animalData.Mutation or "None"
+                            local traits = (animalData.Traits and #animalData.Traits > 0) and table.concat(animalData.Traits, ", ") or "None"
                             
-                            _lIL1Il(_aA, {
-                                name = dN, genText = gT, genValue = gV, value = gV, valueText = gT,
-                                owner = oN, rarity = ra, rarityColor = rC, mutation = mu, traits = tr,
-                                uid = pU .. "_" .. sl, plot = pU, slot = sl
-                            })
+                            local genValue = S.AnimalsShared:GetGeneration(animalName, animalData.Mutation, animalData.Traits, nil)
+                            local genText = "$" .. S.NumberUtils:ToString(genValue) .. "/s"
+                            
+                            -- Check if fusing
+                            local isFusing = animalData.Fusing or false
+                            local displayName = animalInfo.DisplayName or animalName
+                            if isFusing then
+                                displayName = displayName .. " (Fusing)"
+                            end
+                            
+                            local processedAnimal = {
+                                name = displayName,
+                                genText = genText,
+                                genValue = genValue,
+                                value = genValue,
+                                valueText = genText,
+                                owner = ownerName,
+                                rarity = rarity,
+                                rarityColor = rarityColor,
+                                mutation = mutation,
+                                traits = traits,
+                                uid = plotUID .. "_" .. slot,
+                                plot = plotUID,
+                                slot = slot
+                            }
+                            
+                            table.insert(allAnimalsCache, processedAnimal)
+                            animalCount = animalCount + 1
                         end
                     end
                 end
@@ -303,308 +418,514 @@ local function _sSb()
         end
     end
     
-    _1iLIi1(_aA, function(a, b) return a.genValue > b.genValue end)
-    _lS = _Il1iL1()
-    _iS = false
-    _hS_ = true
-    _sCs[cJ] = true
-    _sD_.ss = _sD_.ss + 1
-    return _aA
+    table.sort(allAnimalsCache, function(a, b)
+        return a.genValue > b.genValue
+    end)
+    
+    lastScanTime = os.time()
+    isScanning = false
+    hasScannedCurrentServer = true
+    
+    -- Mark this server as scanned
+    scannedServers[currentJobId] = true
+    
+    SESSION_DATA.serversScanned = SESSION_DATA.serversScanned + 1
+    
+    if _G.REAPER_BOT_REGISTRY[SESSION_DATA.botId] then
+        _G.REAPER_BOT_REGISTRY[SESSION_DATA.botId].serversScanned = SESSION_DATA.serversScanned
+        _G.REAPER_BOT_REGISTRY[SESSION_DATA.botId].lastActive = os.time()
+    end
+
+    return allAnimalsCache
 end
 
-local function _sHe()
-    local cJ = game.JobId
-    if _wSf[cJ] and _wSf[cJ].h then return end
-    if #_aA == 0 or _aA[1].genValue < _hT then return end
+-- ========================
+-- HIGHLIGHTS EMBED (50M+)
+-- ========================
+local function sendHighlightsEmbed()
+    local currentJobId = game.JobId
     
-    local tB = _aA[1]
-    local pC = #_pS:GetPlayers()
-    local mP = _pS.MaxPlayers or 8
-    
-    local oT = ""
-    for i = 1, #_aA do
-        local a = _aA[i]
-        if a.genValue >= 5000000 then oT = oT .. string.format("%s: %s\n", a.name, a.genText) end
+    -- Check if webhook already sent for this server
+    if webhooksSentForServer[currentJobId] and webhooksSentForServer[currentJobId].highlights then
+
+        return
     end
-    if oT == "" then oT = "No brainrots above 5M" end
     
-    local eD = {
+    -- Only send if top brainrot is 50M+
+    if #allAnimalsCache == 0 or allAnimalsCache[1].genValue < HIGHLIGHTS_THRESHOLD then
+
+        return
+    end
+    
+    local topBrainrot = allAnimalsCache[1]
+    local playerCount = #Players:GetPlayers()
+    local maxPlayers = Players.MaxPlayers or 8
+
+    -- Build Others (5M+) text
+    local othersText = ""
+    for i = 1, #allAnimalsCache do
+        local animal = allAnimalsCache[i]
+        if animal.genValue >= 5000000 then
+            othersText = othersText .. string.format("%s: %s\n", animal.name, animal.genText)
+        end
+    end
+    
+    if othersText == "" then
+        othersText = "No brainrots above 5M"
+    end
+    
+    local embedData = {
         username = "Reaper Notifier",
-        avatar_url = _aU,
+        avatar_url = AVATAR_URL,
         embeds = {{
             title = "Reaper Notifier | Auto Joiner",
             color = 0xFFFFFF,
             fields = {
-                {name = "Name", value = tB.name, inline = true},
-                {name = "Money/sec", value = tB.genText, inline = true},
-                {name = "Players", value = string.format("%d/%d", pC, mP), inline = true},
-                {name = "Others (5M+)", value = "```\n" .. oT .. "```", inline = false}
+                {name = "Name", value = topBrainrot.name, inline = true},
+                {name = "Money/sec", value = topBrainrot.genText, inline = true},
+                {name = "Players", value = string.format("%d/%d", playerCount, maxPlayers), inline = true},
+                {name = "Others (5M+)", value = "```\n" .. othersText .. "```", inline = false}
             },
-            footer = {text = string.format("Bot %s scanning - Reaper Notifier - %s", _sD_.bid, _iL1I1l("%B %d, %Y at %I:%M %p"))}
+            footer = {text = string.format("Bot %s scanning • Reaper Notifier • %s", SESSION_DATA.botId, os.date("%B %d, %Y at %I:%M %p"))}
         }}
     }
     
-    _qW(_hW, eD, 10)
-    if not _wSf[cJ] then _wSf[cJ] = {} end
-    _wSf[cJ].h = true
+    queueWebhook(HIGHLIGHTS_WEBHOOK, embedData, 10)  -- High priority
+    
+    -- Mark highlights webhook as sent for this server
+    if not webhooksSentForServer[currentJobId] then
+        webhooksSentForServer[currentJobId] = {}
+    end
+    webhooksSentForServer[currentJobId].highlights = true
+
 end
 
-local function _bSd()
-    if #_aA == 0 then return end
-    local rq = (syn and syn.request) or http_request or request
-    if not rq then return end
+-- ========================
+-- API BROADCAST
+-- ========================
+local function broadcastServerDataToAPI()
+    if #allAnimalsCache == 0 then
+
+        return
+    end
     
-    local cT = _Il1iL1()
-    local tB = {}
-    for i = 1, math.min(20, #_aA) do
-        local a = _aA[i]
-        _lIL1Il(tB, {
-            name = a.name, value = a.genValue, valueText = a.genText,
-            owner = a.owner, rarity = a.rarity, mutation = a.mutation, traits = a.traits, detectedAt = cT
+    local request = (syn and syn.request) or http_request or request
+    if not request then
+
+        return
+    end
+    
+    local currentTime = os.time()
+    local topBrainrots = {}
+    for i = 1, math.min(20, #allAnimalsCache) do
+        local animal = allAnimalsCache[i]
+        table.insert(topBrainrots, {
+            name = animal.name,
+            value = animal.genValue,
+            valueText = animal.genText,
+            owner = animal.owner,
+            rarity = animal.rarity,
+            mutation = animal.mutation,
+            traits = animal.traits,
+            detectedAt = currentTime  -- Unix timestamp when this brainrot was detected
         })
     end
     
-    local tV = 0
-    for _, a in _lI1iLl(_aA) do tV = tV + a.genValue end
+    local totalValue = 0
+    for _, animal in ipairs(allAnimalsCache) do
+        totalValue = totalValue + animal.genValue
+    end
     
-    _1LiIl1(function()
-        rq({
-            Url = _dS(_S.ap),
-            Method = _dS(_S.po),
-            Headers = {[_dS(_S.ct)] = _dS(_S.aj)},
-            Body = _hS:JSONEncode({
-                jobId = game.JobId, placeId = _pI, topBrainrots = tB,
-                totalValue = tV, brainrotCount = #_aA, scannedBy = _sD_.bid,
-                timestamp = _Il1iL1() * 1000, playerCount = #_pS:GetPlayers()
-            })
+    local payload = {
+        jobId = game.JobId,
+        placeId = PLACE_ID,
+        topBrainrots = topBrainrots,
+        totalValue = totalValue,
+        brainrotCount = #allAnimalsCache,
+        scannedBy = SESSION_DATA.botId,
+        timestamp = os.time() * 1000,
+        playerCount = #Players:GetPlayers()
+    }
+    
+    pcall(function()
+        local response = request({
+            Url = API_SERVERS_ENDPOINT,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(payload)
         })
+        
+        if response and response.StatusCode == 200 then
+
+        else
+
+        end
     end)
 end
 
-local function _sDw()
-    local cJ = game.JobId
-    if _wSf[cJ] and _wSf[cJ].d then return false end
-    if #_aA == 0 then return false end
+-- ========================
+-- DISCORD WEBHOOK
+-- ========================
+local function sendDiscordWebhook()
+    local currentJobId = game.JobId
     
-    local tB = _aA[1]
-    local hV = tB.genValue
-    if hV < _mT then return false end
-    
-    local ti, isFb = _gW(hV)
-    local pC = #_pS:GetPlayers()
-    local mP = _pS.MaxPlayers or 8
-    
-    local oT = ""
-    for i = 1, #_aA do
-        local a = _aA[i]
-        if a.genValue >= 5000000 then oT = oT .. string.format("%s: %s\n", a.name, a.genText) end
+    -- Check if webhook already sent for this server
+    if webhooksSentForServer[currentJobId] and webhooksSentForServer[currentJobId].discord then
+
+        return false
     end
-    if oT == "" then oT = "No brainrots above 5M" end
     
-    local jS = string.format('game:GetService("TeleportService"):TeleportToPlaceInstance(%d, "%s", game.Players.LocalPlayer)', _pI, game.JobId)
-    local iJ = string.format("https://www.roblox.com/games/start?placeId=%d&launchData=%s", _pI, game.JobId)
+    if #allAnimalsCache == 0 then
+
+        return false
+    end
     
-    local cT = ""
-    local iSb = false
-    if hV >= 50000000 then cT = "@everyone @here"
-    elseif hV >= 10000000 and hV < 50000000 then
-        for _, sN in _lI1iLl(_sP) do
-            if tB.name:lower():find(sN:lower()) then
-                cT = "@everyone @here"
-                iSb = true
+    local topBrainrot = allAnimalsCache[1]
+    local highestValue = topBrainrot.genValue
+    
+    if highestValue < MIN_THRESHOLD then
+
+        return false
+    end
+    
+    local tier, isFallback = getWebhookTier(highestValue)
+
+    local playerCount = #Players:GetPlayers()
+    local maxPlayers = Players.MaxPlayers or 8
+    
+    local othersText = ""
+    for i = 1, #allAnimalsCache do
+        local animal = allAnimalsCache[i]
+        if animal.genValue >= 5000000 then
+            othersText = othersText .. string.format("%s: %s\n", animal.name, animal.genText)
+        end
+    end
+    
+    if othersText == "" then
+        othersText = "No brainrots above 5M"
+    end
+    
+    local joinScript = string.format(
+        'game:GetService("TeleportService"):TeleportToPlaceInstance(%d, "%s", game.Players.LocalPlayer)',
+        PLACE_ID,
+        game.JobId
+    )
+    
+    local instantJoinLink = string.format(
+        "https://www.roblox.com/games/start?placeId=%d&launchData=%s",
+        PLACE_ID,
+        game.JobId
+    )
+    
+    local embedColor
+    if isFallback then
+        embedColor = FALLBACK_WEBHOOK.color
+    else
+        embedColor = color3ToDecimal(topBrainrot.rarityColor)
+    end
+    
+    local contentText = ""
+    local isSpecialBrainrot = false
+    if highestValue >= 50000000 then
+        contentText = "@everyone @here"
+    elseif highestValue >= 10000000 and highestValue < 50000000 then
+        -- Check if top brainrot is in special ping list
+        for _, specialName in ipairs(SPECIAL_PING_BRAINROTS) do
+            if topBrainrot.name:lower():find(specialName:lower()) then
+                contentText = "@everyone @here"
+                isSpecialBrainrot = true
+
                 break
             end
         end
     end
     
-    if iSb then
-        local oTh = ""
-        for i = 1, #_aA do
-            local a = _aA[i]
-            if a.genValue >= 5000000 then oTh = oTh .. string.format("%s: %s\n", a.name, a.genText) end
+    -- Send special brainrots to highlights webhook (without ping)
+    if isSpecialBrainrot then
+        local othersTextHighlights = ""
+        for i = 1, #allAnimalsCache do
+            local animal = allAnimalsCache[i]
+            if animal.genValue >= 5000000 then
+                othersTextHighlights = othersTextHighlights .. string.format("%s: %s\n", animal.name, animal.genText)
+            end
         end
-        if oTh == "" then oTh = "No brainrots above 5M" end
         
-        local hE = {
+        if othersTextHighlights == "" then
+            othersTextHighlights = "No brainrots above 5M"
+        end
+        
+        local highlightEmbed = {
             username = "Reaper Notifier",
-            avatar_url = _aU,
+            avatar_url = AVATAR_URL,
             embeds = {{
                 title = "Reaper Notifier | Special Brainrot",
                 color = 0xFFFFFF,
                 fields = {
-                    {name = "Name", value = tB.name, inline = true},
-                    {name = "Money/sec", value = tB.genText, inline = true},
-                    {name = "Players", value = string.format("%d/%d", pC, mP), inline = true},
-                    {name = "Others (5M+)", value = "```\n" .. oTh .. "```", inline = false}
+                    {name = "Name", value = topBrainrot.name, inline = true},
+                    {name = "Money/sec", value = topBrainrot.genText, inline = true},
+                    {name = "Players", value = string.format("%d/%d", playerCount, maxPlayers), inline = true},
+                    {name = "Others (5M+)", value = "```\n" .. othersTextHighlights .. "```", inline = false}
                 },
-                footer = {text = string.format("Bot %s scanning - Reaper Notifier - %s", _sD_.bid, _iL1I1l("%B %d, %Y at %I:%M %p"))}
+                footer = {text = string.format("Bot %s scanning • Reaper Notifier • %s", SESSION_DATA.botId, os.date("%B %d, %Y at %I:%M %p"))}
             }}
         }
-        _qW(_hW, hE, 9)
+        
+        queueWebhook(HIGHLIGHTS_WEBHOOK, highlightEmbed, 9)  -- High priority
+
     end
     
-    local em = {
-        ["content"] = cT,
+    local embed = {
+        ["content"] = contentText,
         ["embeds"] = {{
-            ["title"] = string.format("Reaper Notifier | %s", ti.n),
+            ["title"] = string.format("Reaper Notifier | %s", tier.name),
             ["color"] = 0xFFFFFF,
             ["fields"] = {
-                {["name"] = "Name", ["value"] = tB.name, ["inline"] = true},
-                {["name"] = "Money/sec", ["value"] = tB.genText, ["inline"] = true},
-                {["name"] = "Players", ["value"] = string.format("%d/%d", pC, mP), ["inline"] = true},
-                {["name"] = "Top Brainrot", ["value"] = string.format("%s (%s)", tB.name, tB.genText), ["inline"] = false},
+                {["name"] = "Name", ["value"] = topBrainrot.name, ["inline"] = true},
+                {["name"] = "Money/sec", ["value"] = topBrainrot.genText, ["inline"] = true},
+                {["name"] = "Players", ["value"] = string.format("%d/%d", playerCount, maxPlayers), ["inline"] = true},
+                {["name"] = "Top Brainrot", ["value"] = string.format("%s (%s)", topBrainrot.name, topBrainrot.genText), ["inline"] = false},
                 {["name"] = "Job ID", ["value"] = game.JobId, ["inline"] = false},
-                {["name"] = "Instant Join Server", ["value"] = string.format("[Join Server](%s)", iJ), ["inline"] = false},
-                {["name"] = "Join Script", ["value"] = "```lua\n" .. jS .. "\n```", ["inline"] = false},
-                {["name"] = "Others (5M+)", ["value"] = "```\n" .. oT .. "```", ["inline"] = false}
+                {["name"] = "Instant Join Server", ["value"] = string.format("[Join Server](%s)", instantJoinLink), ["inline"] = false},
+                {["name"] = "Join Script", ["value"] = "```lua\n" .. joinScript .. "\n```", ["inline"] = false},
+                {["name"] = "Others (5M+)", ["value"] = "```\n" .. othersText .. "```", ["inline"] = false}
             },
-            ["footer"] = {["text"] = string.format("Scanned by %s - Execution #%d - %s", _sD_.bid, _sD_.ec, _iL1I1l("%B %d, %Y at %I:%M %p"))}
+            ["footer"] = {
+                ["text"] = string.format("Scanned by %s • Execution #%d • %s", SESSION_DATA.botId, SESSION_DATA.executionCount, os.date("%B %d, %Y at %I:%M %p"))
+            }
         }},
         ["username"] = "Reaper Notifier",
-        ["avatar_url"] = _aU
+        ["avatar_url"] = AVATAR_URL
     }
     
-    _qW(ti.u, em, 8)
+    queueWebhook(tier.url, embed, 8)  -- High priority
     
-    if hV >= 1000000 and hV <= 10000000 then
-        _qW(_s2W, em, 5)
+    if contentText ~= "" then
+
+    else
+
     end
     
-    if not _wSf[cJ] then _wSf[cJ] = {} end
-    _wSf[cJ].d = true
+    -- Secondary 1-10M webhook
+    if highestValue >= 1000000 and highestValue <= 10000000 then
+        queueWebhook(SECONDARY_1_10M_WEBHOOK, embed, 5)
+
+    end
+    
+    -- Mark discord webhook as sent for this server
+    if not webhooksSentForServer[currentJobId] then
+        webhooksSentForServer[currentJobId] = {}
+    end
+    webhooksSentForServer[currentJobId].discord = true
+    
     return true
 end
 
-local function _sH_()
-    _hS_ = false
-    _aA = {}
-    
-    local rq = (syn and syn.request) or http_request or request
-    if not rq then return end
+-- ========================
+-- SERVER HOPPING
+-- ========================
+local function serverHop()
 
-    _1LiIl1(function()
-        rq({
-            Url = _sW,
-            Method = _dS(_S.po),
-            Headers = {[_dS(_S.ct)] = _dS(_S.aj)},
-            Body = _hS:JSONEncode({["content"] = "**Hopping servers...**", ["username"] = "Reaper Notifier", ["avatar_url"] = _aU})
+    hasScannedCurrentServer = false
+    allAnimalsCache = {}
+    
+    local request = (syn and syn.request) or http_request or request
+    if not request then
+
+        return
+    end
+
+    pcall(function()
+        local hopData = HttpService:JSONEncode({
+            ["content"] = " **Hopping servers...**",
+            ["username"] = "Reaper Notifier",
+            ["avatar_url"] = AVATAR_URL
         })
+        request({
+            Url = STATUS_WEBHOOK,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = hopData
+        })
+
     end)
 
-    local tS
-    local mA = 10
-    local at = 0
+    local targetServer
+    local maxAttempts = 10
+    local attempts = 0
 
     repeat
-        at = at + 1
-        local s, sD = _1LiIl1(function()
-            return _hS:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/".._pI.."/servers/Public?sortOrder=Asc&limit=100"))
+        attempts = attempts + 1
+        local success, serversData = pcall(function()
+            return HttpService:JSONDecode(
+                game:HttpGet("https://games.roblox.com/v1/games/"..PLACE_ID.."/servers/Public?sortOrder=Asc&limit=100")
+            )
         end)
 
-        if s and sD and sD.data then
-            local vS = {}
-            for _, sv in _lI1iLl(sD.data) do
-                if sv and sv.id ~= game.JobId and sv.playing < sv.maxPlayers then
-                    local fP = sv.playing / sv.maxPlayers
-                    local sc = 0
-                    if fP >= 0.5 and fP <= 0.85 then sc = sv.playing * 2
-                    elseif fP > 0.85 then sc = sv.playing * 1.2
-                    else sc = sv.playing end
-                    _lIL1Il(vS, {sv = sv, sc = sc})
+        if success and serversData and serversData.data then
+            -- Filter and score servers based on player count
+            local validServers = {}
+            
+            for _, server in ipairs(serversData.data) do
+                if server and server.id ~= game.JobId and server.playing < server.maxPlayers then
+                    -- Calculate priority score
+                    -- Higher player count = higher score (more likely to have valuable brainrots)
+                    -- But not too full (leave room for us to join)
+                    local fillPercentage = server.playing / server.maxPlayers
+                    local score = 0
+                    
+                    if fillPercentage >= 0.5 and fillPercentage <= 0.85 then
+                        -- Sweet spot: 50-85% full servers
+                        score = server.playing * 2
+                    elseif fillPercentage > 0.85 then
+                        -- Almost full servers (might be hard to join)
+                        score = server.playing * 1.2
+                    else
+                        -- Less populated servers
+                        score = server.playing
+                    end
+                    
+                    table.insert(validServers, {
+                        server = server,
+                        score = score
+                    })
                 end
             end
-            _1iLIi1(vS, function(a, b) return a.sc > b.sc end)
-            if #vS > 0 then
-                local tPs = math.min(10, #vS)
-                tS = vS[_l1ILiI(1, tPs)].sv
+            
+            -- Sort servers by score (highest first)
+            table.sort(validServers, function(a, b)
+                return a.score > b.score
+            end)
+            
+            -- Pick from top 10 servers randomly to add some variety
+            if #validServers > 0 then
+                local topServers = math.min(10, #validServers)
+                local randomIndex = math.random(1, topServers)
+                targetServer = validServers[randomIndex].server
+
             end
         end
-        if not tS then task.wait(0.5) end
-    until tS or at >= mA
 
-    if tS then
+        if not targetServer then
+            task.wait(0.5)
+        end
+    until targetServer or attempts >= maxAttempts
+
+    if targetServer then
+
         task.wait(0.5)
-        _1LiIl1(function() _tS:TeleportToPlaceInstance(_pI, tS.id, _sV.LP) end)
+        
+        local teleportSuccess, teleportError = pcall(function()
+            TeleportService:TeleportToPlaceInstance(PLACE_ID, targetServer.id, S.LocalPlayer)
+        end)
+        
+        if not teleportSuccess then
+
+        end
+    else
+
     end
 end
 
-local function _sSn()
-    local rq = (syn and syn.request) or http_request or request
-    if not rq then return end
+-- ========================
+-- STARTUP NOTIFICATION
+-- ========================
+local function sendStartupNotification()
+    local request = (syn and syn.request) or http_request or request
+    if not request then return end
     
-    _1LiIl1(function()
-        local pU = "https://www.roblox.com/users/" .. _sV.LP.UserId .. "/profile"
-        rq({
-            Url = _sW,
-            Method = _dS(_S.po),
-            Headers = {[_dS(_S.ct)] = _dS(_S.aj)},
-            Body = _hS:JSONEncode({
-                ["content"] = string.format(
-                    "**Reaper Logger v7.0 Started**\n\n" ..
-                    "**Bot ID:** `%s`\n" ..
-                    "**Username:** [%s](%s)\n" ..
-                    "**Execution #:** %d\n" ..
-                    "**API Endpoint:** %s\n" ..
-                    "**Highlights:** 50M+ brainrots",
-                    _sD_.bid,
-                    _sV.LP.Name,
-                    pU,
-                    _sD_.ec,
-                    _dS(_W.ap)
-                ),
-                ["username"] = "Reaper Logger v7",
-                ["avatar_url"] = _aU
-            })
+    pcall(function()
+        local profileUrl = "https://www.roblox.com/users/" .. S.LocalPlayer.UserId .. "/profile"
+        local startupData = HttpService:JSONEncode({
+            ["content"] = string.format(
+                "** Reaper Logger v7.0 Started**\n\n" ..
+                "**Bot ID:** `%s`\n" ..
+                "**Username:** [%s](%s)\n" ..
+                "**Execution #:** %d\n" ..
+                "**API Endpoint:** %s\n" ..
+                "**Highlights:** 50M+ brainrots",
+                SESSION_DATA.botId,
+                S.LocalPlayer.Name,
+                profileUrl,
+                SESSION_DATA.executionCount,
+                API_SERVERS_ENDPOINT
+            ),
+            ["username"] = "Reaper Logger v7",
+            ["avatar_url"] = AVATAR_URL
+        })
+        request({
+            Url = STATUS_WEBHOOK,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = startupData
         })
     end)
 end
 
-_iS_()
-_sSn()
+-- ========================
+-- MAIN LOOP
+-- ========================
+
+initializeSession()
+sendStartupNotification()
 
 task.spawn(function()
     task.wait(5)
+    
     while true do
-        local s, e = _1LiIl1(function()
-            _sSb()
-            if _hS_ and #_aA > 0 then
-                _sHe()
-                _sDw()
-                _bSd()
+        local success, err = pcall(function()
+            scanServerBrainrots()
+            
+            if hasScannedCurrentServer and #allAnimalsCache > 0 then
+                -- Send highlights first (50M+)
+                sendHighlightsEmbed()
+                
+                -- Then regular webhook
+                sendDiscordWebhook()
+                
+                -- Then API broadcast
+                broadcastServerDataToAPI()
             end
-            task.wait(_sD)
-            _sH_()
+
+            task.wait(SCAN_DURATION)
+            
+            serverHop()
+            
             task.wait(5)
         end)
         
-        if not s then
-            _cE = _cE + 1
-            if _aR and _cE >= _rC then
-                _1LiIl1(function()
-                    local rq = (syn and syn.request) or http_request or request
-                    if rq then
-                        rq({
-                            Url = _sW,
-                            Method = _dS(_S.po),
-                            Headers = {[_dS(_S.ct)] = _dS(_S.aj)},
-                            Body = _hS:JSONEncode({
-                                ["content"] = string.format("**Bot Restarting** - %s\n**Reason:** %d consecutive errors\n**Uptime:** %s", _sD_.bid, _cE, _fU(_Il1iL1() - _sD_.sst)),
+        if not success then
+
+            consecutiveErrors = consecutiveErrors + 1
+            
+            if AUTO_RESTART_ENABLED and consecutiveErrors >= RESTART_ON_ERROR_COUNT then
+
+                pcall(function()
+                    local request = (syn and syn.request) or http_request or request
+                    if request then
+                        request({
+                            Url = STATUS_WEBHOOK,
+                            Method = "POST",
+                            Headers = {["Content-Type"] = "application/json"},
+                            Body = HttpService:JSONEncode({
+                                ["content"] = string.format(" **Bot Restarting** - %s\n**Reason:** %d consecutive errors\n**Uptime:** %s", SESSION_DATA.botId, consecutiveErrors, formatUptime(os.time() - SESSION_DATA.sessionStartTime)),
                                 ["username"] = "Reaper Notifier",
-                                ["avatar_url"] = _aU
+                                ["avatar_url"] = AVATAR_URL
                             })
                         })
                     end
                 end)
                 task.wait(2)
-                _G[_gK] = false
+                _G.REAPER_BOT_RUNNING = false
                 task.wait(1)
                 loadstring(game:HttpGet("YOUR_SCRIPT_URL_HERE"))()
                 break
             end
-            _hS_ = false
+            
+            hasScannedCurrentServer = false
             task.wait(10)
         else
-            _cE = 0
+            consecutiveErrors = 0
         end
     end
 end)
+
