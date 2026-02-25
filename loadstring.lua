@@ -1,6 +1,7 @@
 --[[
-    Blox Fruits ULTRA-MODERNIZED Auto-Hunter
+    Blox Fruits ULTRA-MODERNIZED Auto-Hunter (Tween Edition)
     Features:
+    - Smooth TweenService Movement (Bypasses Collection Issues)
     - 7-Second Smart Server Hopping
     - Advanced Fruit Detection (Tool & Model)
     - Modernized UI with Detailed Logging (Fruit Names & Rarity)
@@ -46,7 +47,8 @@ local Config = {
     FruitLog = {},
     Status = "Initializing...",
     Running = true,
-    HopTime = 7 -- 7-second server hop
+    HopTime = 7, -- 7-second server hop
+    TweenSpeed = 300 -- Speed for TweenService
 }
 
 -- Helper: Get Fruit Name and Rarity
@@ -242,43 +244,49 @@ local function StoreFruit(tool)
     end)
 end
 
+-- Tween Movement Function
+local function TweenTo(targetCFrame)
+    if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = plr.Character.HumanoidRootPart
+    local distance = (hrp.Position - targetCFrame.Position).Magnitude
+    local duration = distance / Config.TweenSpeed
+    
+    local tween = TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+    tween:Play()
+    return tween
+end
+
 local function CollectFruit(item)
     if not item or not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then return false end
     
-    local hrp = plr.Character.HumanoidRootPart
     local targetPart = item:IsA("Tool") and item:FindFirstChild("Handle") or item:IsA("Model") and item:FindFirstChildWhichIsA("BasePart", true)
-    
     if not targetPart then return false end
     
-    local startTime = tick()
-    local collected = false
+    local name, _ = GetFruitInfo(item.Name)
+    ui.UpdateStatus("Tweening to: " .. name)
     
-    repeat
-        if not Config.Running then task.wait(0.5) continue end
-        hrp.CFrame = targetPart.CFrame
-        task.wait(0.1)
-        
-        -- Check if collected (moved from workspace to player)
-        if not item:IsDescendantOf(workspace) then
-            collected = true
-            break
-        end
-    until tick() - startTime > 5 or not item:IsDescendantOf(workspace)
+    local tween = TweenTo(targetPart.CFrame)
+    if tween then
+        tween.Completed:Wait()
+    end
     
-    if collected then
-        local name = item.Name
-        ui.AddLog(name)
-        SendFruitWebhook(name, "Fruit Collected")
+    task.wait(0.2) -- Small delay to ensure pickup
+    
+    -- Check if collected (moved from workspace to player)
+    if not item:IsDescendantOf(workspace) then
+        ui.AddLog(item.Name)
+        SendFruitWebhook(item.Name, "Fruit Collected")
         
         -- Try to store if it's a tool now in backpack
         task.delay(0.5, function()
             for _, tool in ipairs(plr.Backpack:GetChildren()) do
-                if tool.Name == name then StoreFruit(tool) break end
+                if tool.Name == item.Name then StoreFruit(tool) break end
             end
         end)
+        return true
     end
     
-    return collected
+    return false
 end
 
 -- Main Loop
@@ -297,9 +305,6 @@ local function StartFinder()
         for _, v in ipairs(workspace:GetChildren()) do
             if (v:IsA("Tool") or v:IsA("Model")) and v.Name:lower():find("fruit") then
                 found = true
-                local name, _ = GetFruitInfo(v.Name)
-                ui.UpdateStatus("Found: " .. name)
-                
                 if CollectFruit(v) then
                     task.wait(1)
                 end
