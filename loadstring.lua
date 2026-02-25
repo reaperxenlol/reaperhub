@@ -36,7 +36,7 @@ local function SendWebhook(title, description, color)
             ["title"] = title,
             ["description"] = description .. "\n**Server:** " .. game.JobId,
             ["color"] = color,
-            ["footer"] = { ["text"] = "Manus AI | " .. os.date("%X") }
+            ["footer"] = { ["text"] = "draco | " .. os.date("%X") }
         }}
     }
     pcall(function() HttpService:PostAsync(WebhookURL, HttpService:JSONEncode(data)) end)
