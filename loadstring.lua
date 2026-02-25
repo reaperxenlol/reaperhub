@@ -21,11 +21,11 @@ local RarityColors = {
 }
 
 local FruitData = {
-    ["Kitsune"] = "Mythical", ["Leopard"] = "Mythical", ["Dragon"] = "Mythical", ["Spirit"] = "Mythical", ["Control"] = "Mythical", ["Venom"] = "Mythical", ["Shadow"] = "Mythical", ["Dough"] = "Mythical", ["Mammoth"] = "Mythical", ["Gravity"] = "Mythical", ["T-Rex"] = "Mythical",
-    ["Blizzard"] = "Legendary", ["Pain"] = "Legendary", ["Rumble"] = "Legendary", ["Portal"] = "Legendary", ["Phoenix"] = "Legendary", ["Sound"] = "Legendary", ["Love"] = "Legendary", ["Spider"] = "Legendary", ["Buddha"] = "Legendary", ["Quake"] = "Legendary",
-    ["Magma"] = "Rare", ["Ghost"] = "Rare", ["Barrier"] = "Rare", ["Rubber"] = "Rare", ["Light"] = "Rare", ["Diamond"] = "Rare",
-    ["Dark"] = "Uncommon", ["Sand"] = "Uncommon", ["Ice"] = "Uncommon", ["Falcon"] = "Uncommon", ["Flame"] = "Uncommon",
-    ["Spike"] = "Common", ["Smoke"] = "Common", ["Bomb"] = "Common", ["Spring"] = "Common", ["Chop"] = "Common", ["Spin"] = "Common", ["Rocket"] = "Common"
+    ["Rocket"] = "Common", ["Spin"] = "Common", ["Blade"] = "Common", ["Spring"] = "Common", ["Bomb"] = "Common", ["Smoke"] = "Common", ["Spike"] = "Common",
+    ["Flame"] = "Uncommon", ["Ice"] = "Uncommon", ["Sand"] = "Uncommon", ["Dark"] = "Uncommon", ["Eagle"] = "Uncommon", ["Diamond"] = "Uncommon",
+    ["Light"] = "Rare", ["Rubber"] = "Rare", ["Ghost"] = "Rare", ["Magma"] = "Rare",
+    ["Quake"] = "Legendary", ["Buddha"] = "Legendary", ["Love"] = "Legendary", ["Creation"] = "Legendary", ["Spider"] = "Legendary", ["Sound"] = "Legendary", ["Phoenix"] = "Legendary", ["Portal"] = "Legendary", ["Lightning"] = "Legendary", ["Pain"] = "Legendary", ["Blizzard"] = "Legendary",
+    ["Gravity"] = "Mythical", ["Mammoth"] = "Mythical", ["T-Rex"] = "Mythical", ["Dough"] = "Mythical", ["Shadow"] = "Mythical", ["Venom"] = "Mythical", ["Gas"] = "Mythical", ["Spirit"] = "Mythical", ["Tiger"] = "Mythical", ["Yeti"] = "Mythical", ["Kitsune"] = "Mythical", ["Control"] = "Mythical", ["Dragon"] = "Mythical"
 }
 
 -- Generic Webhook Sender
