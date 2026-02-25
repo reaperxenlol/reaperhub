@@ -1,11 +1,12 @@
 --[[
-    Blox Fruits Modernized Auto-Hunter
+    Blox Fruits Modernized Auto-Hunter (Fixed Team Selection)
     Features:
     - Advanced Fruit Detection (Tool & Model)
     - Modernized UI with Detailed Logging
     - Reliable Collection & Storage Logic
     - Multi-Executor Webhook Support
     - Smart Server Hopping
+    - Fixed Auto-Team Selection (Marines)
 ]]
 
 repeat task.wait() until game:IsLoaded() and game:GetService("Players").LocalPlayer
@@ -87,6 +88,18 @@ local function SendFruitWebhook(fruitName, status)
     local name, rarity = GetFruitInfo(fruitName)
     local color = RarityColors[rarity] or RarityColors.Common
     SendWebhook("Blox Fruits Logger", "**" .. status .. ":** " .. name .. " Fruit\n**Rarity:** " .. rarity, color)
+end
+
+-- Fixed Team Selection Logic
+local function JoinTeam()
+    pcall(function()
+        if plr.Team == nil or (plr.Team.Name ~= "Marines" and plr.Team.Name ~= "Pirates") then
+            local success = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer("SetTeam", "Marines")
+            if success then
+                SendWebhook("Blox Fruits Auto-Hunter", "Joined team: **Marines**", 65280)
+            end
+        end
+    end)
 end
 
 -- UI Implementation
@@ -276,6 +289,9 @@ local function StartFinder()
     
     while task.wait(0.5) do
         if not Config.Running then continue end
+        
+        -- Ensure player is on a team
+        JoinTeam()
         
         local found = false
         ui.UpdateStatus("Scanning for fruits...")
