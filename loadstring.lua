@@ -1,12 +1,12 @@
 --[[
-    Blox Fruits Modernized Auto-Hunter (Fixed Team Selection)
+    Blox Fruits ULTRA-MODERNIZED Auto-Hunter
     Features:
+    - 7-Second Smart Server Hopping
     - Advanced Fruit Detection (Tool & Model)
-    - Modernized UI with Detailed Logging
+    - Modernized UI with Detailed Logging (Fruit Names & Rarity)
     - Reliable Collection & Storage Logic
     - Multi-Executor Webhook Support
-    - Smart Server Hopping
-    - Fixed Auto-Team Selection (Marines)
+    - Auto-Team Selection (Marines)
 ]]
 
 repeat task.wait() until game:IsLoaded() and game:GetService("Players").LocalPlayer
@@ -45,7 +45,8 @@ local Config = {
     AutoStoreFruit = true,
     FruitLog = {},
     Status = "Initializing...",
-    Running = true
+    Running = true,
+    HopTime = 7 -- 7-second server hop
 }
 
 -- Helper: Get Fruit Name and Rarity
@@ -90,14 +91,11 @@ local function SendFruitWebhook(fruitName, status)
     SendWebhook("Blox Fruits Logger", "**" .. status .. ":** " .. name .. " Fruit\n**Rarity:** " .. rarity, color)
 end
 
--- Fixed Team Selection Logic
+-- Team Selection Logic
 local function JoinTeam()
     pcall(function()
         if plr.Team == nil or (plr.Team.Name ~= "Marines" and plr.Team.Name ~= "Pirates") then
-            local success = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer("SetTeam", "Marines")
-            if success then
-                SendWebhook("Blox Fruits Auto-Hunter", "Joined team: **Marines**", 65280)
-            end
+            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer("SetTeam", "Marines")
         end
     end)
 end
@@ -109,14 +107,14 @@ local function CreateModernUI()
     if not ScreenGui.Parent then ScreenGui.Parent = plr:WaitForChild("PlayerGui") end
     
     local MainFrame = Instance.new("Frame", ScreenGui)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
     MainFrame.Position = UDim2.new(0.5, -160, 0.5, -180)
     MainFrame.Size = UDim2.new(0, 320, 0, 360)
     MainFrame.BorderSizePixel = 0
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
     
     local TopBar = Instance.new("Frame", MainFrame)
-    TopBar.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    TopBar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     TopBar.Size = UDim2.new(1, 0, 0, 50)
     TopBar.BorderSizePixel = 0
     local TopCorner = Instance.new("UICorner", TopBar)
@@ -127,13 +125,13 @@ local function CreateModernUI()
     Title.Position = UDim2.new(0, 15, 0, 0)
     Title.Size = UDim2.new(1, -30, 1, 0)
     Title.Font = Enum.Font.GothamBold
-    Title.Text = "FRUIT FINDER PRO"
+    Title.Text = "FRUIT FINDER PRO v2"
     Title.TextColor3 = Color3.fromRGB(255, 255, 255)
     Title.TextSize = 18
     Title.TextXAlignment = Enum.TextXAlignment.Left
     
     local StatusContainer = Instance.new("Frame", MainFrame)
-    StatusContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    StatusContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
     StatusContainer.Position = UDim2.new(0, 15, 0, 65)
     StatusContainer.Size = UDim2.new(1, -30, 0, 45)
     Instance.new("UICorner", StatusContainer).CornerRadius = UDim.new(0, 8)
@@ -157,7 +155,7 @@ local function CreateModernUI()
     LogLabel.TextXAlignment = Enum.TextXAlignment.Left
     
     local LogFrame = Instance.new("ScrollingFrame", MainFrame)
-    LogFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    LogFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
     LogFrame.Position = UDim2.new(0, 15, 0, 145)
     LogFrame.Size = UDim2.new(1, -30, 0, 150)
     LogFrame.BorderSizePixel = 0
@@ -311,9 +309,9 @@ local function StartFinder()
         
         if not found then
             local timeSinceHop = math.floor(tick() - lastServerHop)
-            ui.UpdateStatus("No fruits. Hopping in: " .. (7 - timeSinceHop) .. "s")
+            ui.UpdateStatus("No fruits. Hopping in: " .. (Config.HopTime - timeSinceHop) .. "s")
             
-            if timeSinceHop >= 7 then
+            if timeSinceHop >= Config.HopTime then
                 ui.UpdateStatus("Server Hopping...")
                 SendWebhook("Blox Fruits Auto-Hunter", "No fruits found, hopping servers.", 16776960)
                 
@@ -349,5 +347,5 @@ end)
 
 -- Start
 ui.UpdateStatus("Script Started")
-SendWebhook("Blox Fruits Auto-Hunter", "Modernized script started!", 3447003)
+SendWebhook("Blox Fruits Auto-Hunter", "Ultra-Modernized script started!", 3447003)
 task.spawn(StartFinder)
