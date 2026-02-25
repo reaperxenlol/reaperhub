@@ -311,9 +311,9 @@ local function StartFinder()
         
         if not found then
             local timeSinceHop = math.floor(tick() - lastServerHop)
-            ui.UpdateStatus("No fruits. Hopping in: " .. (30 - timeSinceHop) .. "s")
+            ui.UpdateStatus("No fruits. Hopping in: " .. (7 - timeSinceHop) .. "s")
             
-            if timeSinceHop >= 30 then
+            if timeSinceHop >= 7 then
                 ui.UpdateStatus("Server Hopping...")
                 SendWebhook("Blox Fruits Auto-Hunter", "No fruits found, hopping servers.", 16776960)
                 
